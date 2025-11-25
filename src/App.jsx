@@ -90,11 +90,11 @@ function App() {
           <UserDetails />
         </ProtectedRoute>
       } />
-      <Route path="/products" element={
+      {/* <Route path="/products" element={
         <ProtectedRoute>
           <ProductListingPage />
         </ProtectedRoute>
-      } />
+      } /> */}
       <Route path="/review" element={
         <ProtectedRoute>
         <ProductReviews />

@@ -43,7 +43,7 @@ export default function LandingPage() {
                         <div className="md:w-1/2 flex justify-center md:justify-end mt-10 md:mt-0">
                             <button
                                 onClick={() => navigate('/home')}
-                                className="cursor-pointer text-white text-3xl md:text-4xl font-extrabold px-6 py-4 rounded-md bg-transparent transform transition-transform duration-200 shadow-sm hover:-translate-y-1 hover:shadow-2xl"
+                                className="cursor-pointer text-black text-3xl md:text-4xl font-extrabold px-6 py-4 rounded-md bg-white border-4 border-black transform transition-transform duration-200 shadow-lg hover:-translate-y-1 hover:shadow-2xl"
                                 aria-label="Go to homepage"
                             >
                                 BK BAY

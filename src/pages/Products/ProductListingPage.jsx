@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getProducts } from '../../services/productService';
-import { useCart } from '../../context/CartContext';
+// import { useCart } from '../../context/CartContext';
 import ProductList from '../../components/product/ProductList';
 import Header from '../../components/header/Header';
 import Footer from '../../components/footer/Footer';
@@ -57,7 +57,7 @@ const ProductListingPage = () => {
     <>
       <Header />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-8">
-        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg shadow-lg p-8 md:p-12 mb-8 text-white">
+        <div className="bg-linear-to-r from-blue-500 to-indigo-600 rounded-lg shadow-lg p-8 md:p-12 mb-8 text-white">
           <h1 className="text-3xl md:text-4xl font-bold mb-2">Mid-Season Sale</h1>
           <p className="text-lg mb-6 text-blue-100">Get up to 40% off on selected items. Don't miss out on amazing deals!</p>
           <a className="bg-white text-primary font-semibold py-2 px-6 rounded-full hover:bg-zinc-100 transition duration-300 ease-in-out transform hover:scale-105" href="#">Shop Now</a>
