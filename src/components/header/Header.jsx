@@ -7,7 +7,6 @@ import {
     FaSearch, FaChevronDown, FaBars, FaTimes,
     FaUser, FaCog, FaSignOutAlt, FaShoppingCart 
 } from 'react-icons/fa';
-import { useCart } from '../../context/CartContext';
 import logoImage from '../../assets/logoBKBay.png'; // Assuming this path is correct
 import getCurrentUser from '../../services/userService'; // If needed for user data
 
@@ -126,20 +125,6 @@ export default function Header() {
                     </div>
                 </div>
 
-                {/* Navigation Links (Desktop) */}
-                <nav className="hidden md:flex space-x-8">
-                    {/* Using the navItems array for desktop nav for consistency */}
-                        {navItems.map((item) => (
-                        <Link 
-                            key={item.title} 
-                            to={item.path} 
-                            className="text-gray-600 hover:text-primary font-medium"
-                        >
-                            {item.title}
-                        </Link>
-                    ))}
-                </nav>
-
                 {/* User Profile & Menu (Desktop) */}
                 <div className="hidden md:flex items-center space-x-3 relative">
                     <span className="text-gray-700 font-medium">{currentUser ? currentUser.Username : 'Guest'}</span>
@@ -181,7 +166,8 @@ export default function Header() {
                                         onClick={() => setShowUserMenu(false)}
                                         className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 w-full text-left"
                                     >
-                                        <FaShoppingCart className="h-5 w-5" /> My Cart {cartItemCount > 0 && `(${cartItemCount})`}
+                                        {/* <FaShoppingCart className="h-5 w-5" /> My Cart {cartItemCount > 0 && `(${cartItemCount})`} */}
+                                        <FaShoppingCart className="h-5 w-5" /> My Cart
                                     </Link>
                                 </li>
                                 <li className="border-t border-gray-200 mt-1 pt-1">
@@ -245,25 +231,6 @@ export default function Header() {
                         />
                     </div>
                 </div>
-
-                {/* Mobile Nav Links */}
-                <div className="flex flex-col space-y-2">
-                    {navItems.map((item) => ( // Using the *new* consistent navItems
-                        <NavLink
-                            key={item.title}
-                            to={item.path}
-                            // Using a simpler class for white background
-                            className={({ isActive }) =>
-                                `block text-base font-bold uppercase tracking-wider hover:bg-gray-100 transition-colors px-3 py-2 rounded-md ${
-                                    isActive ? "bg-gray-200 text-blue-700" : "text-gray-900"
-                                }`
-                            }
-                            onClick={() => setIsMobileMenuOpen(false)}
-                        >
-                            {item.title}
-                        </NavLink>
-                    ))}
-                </div>
                 
                 {/* Divider */}
                 <div className="border-t border-gray-200 my-4"></div>
@@ -279,7 +246,7 @@ export default function Header() {
                     </Link>
                      <Link
                         to="/settings"
-                        onClick={() => setIsMobileMEnuOpen(false)}
+                        onClick={() => setIsMobileMenuOpen(false)}
                         className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 w-full text-left"
                     >
                         <FaCog className="h-5 w-5" /> Settings
