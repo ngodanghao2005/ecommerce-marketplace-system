@@ -44,23 +44,12 @@ function App() {
           <SellerProductReport />
         </ProtectedRoute>
       } />
-      <Route path="/seller-dashboard" element={
-        <ProtectedRoute>
-          <SellerDashboardPage />
-        </ProtectedRoute>
-      } />
-      {/* Backwards-compatible aliases: some parts of the app/navigation use /seller/... paths */}
       <Route path="/seller/seller-dashboard" element={
         <ProtectedRoute>
           <SellerDashboardPage />
         </ProtectedRoute>
       } />
       <Route path="/seller" element={<Navigate to="/seller/seller-dashboard" replace />} />
-      <Route path="/add-product" element={
-        <ProtectedRoute>
-          <AddProductPage />
-        </ProtectedRoute>
-      } />
       <Route path="/seller/add-product" element={
         <ProtectedRoute>
           <AddProductPage />

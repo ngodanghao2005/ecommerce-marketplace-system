@@ -200,9 +200,10 @@ const ProtectedRoute = ({ children }) => {
         
         const allowedSellerRoutes = [
         '/seller',
-        '/seller/dashboard',
+        '/seller/seller-dashboard',
         '/seller/products',
         '/seller/orders',
+        '/seller/add-product',
         ];
 
         const isAllowedRoute = allowedSellerRoutes.some(route =>

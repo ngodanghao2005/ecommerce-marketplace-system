@@ -1,8 +1,8 @@
 // Frontend service wrapper for Seller Product APIs
 // Provides small functions that call the backend endpoints and return parsed JSON.
-// Uses `credentials: 'include'` so cookie-based JWT (httpOnly) is sent with requests.
+// Uses `credentials: 'include'` so cookie-API_URLd JWT (httpOnly) is sent with requests.
 
-const BASE = '/api/seller/products';
+const API_URL = '/api/seller';
 
 async function handleResponse(res) {
   const contentType = res.headers.get('content-type') || '';
@@ -21,7 +21,7 @@ async function handleResponse(res) {
   return body;
 }
 
-export async function listSellerProducts({ limit = 20, offset = 0, search, size, color, orderBy, order } = {}) {
+export async function listSellerProducts({ limit = 20, offset = 0, search, size, color, orderBy, order, category, status, stock, hasImages } = {}) {
   const params = new URLSearchParams();
   params.set('limit', String(limit));
   params.set('offset', String(offset));
@@ -30,18 +30,22 @@ export async function listSellerProducts({ limit = 20, offset = 0, search, size,
   if (color) params.set('color', color);
   if (orderBy) params.set('orderBy', orderBy);
   if (order) params.set('order', order);
+  if (category) params.set('category', category);
+  if (status) params.set('status', status);
+  if (stock) params.set('stock', stock);
+  if (hasImages) params.set('hasImages', hasImages);
 
-  const res = await fetch(`${BASE}?${params.toString()}`, { credentials: 'include' });
+  const res = await fetch(`${API_URL}/products?${params.toString()}`, { credentials: 'include' });
   return handleResponse(res);
 }
 
 export async function getSellerProduct(barCode) {
-  const res = await fetch(`${BASE}/${encodeURIComponent(barCode)}`, { credentials: 'include' });
+  const res = await fetch(`${API_URL}/products/${encodeURIComponent(barCode)}`, { credentials: 'include' });
   return handleResponse(res);
 }
 
 export async function createSellerProduct(payload) {
-  const res = await fetch(BASE, {
+  const res = await fetch(API_URL, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -51,7 +55,7 @@ export async function createSellerProduct(payload) {
 }
 
 export async function updateSellerProduct(barCode, payload) {
-  const res = await fetch(`${BASE}/${encodeURIComponent(barCode)}`, {
+  const res = await fetch(`${API_URL}/products/${encodeURIComponent(barCode)}`, {
     method: 'PUT',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -63,7 +67,7 @@ export async function updateSellerProduct(barCode, payload) {
 export async function uploadSellerProductImages(barCode, files = []) {
   const form = new FormData();
   files.forEach(f => form.append('images', f));
-  const res = await fetch(`${BASE}/${encodeURIComponent(barCode)}/images`, {
+  const res = await fetch(`${API_URL}/${encodeURIComponent(barCode)}/images`, {
     method: 'POST',
     credentials: 'include',
     body: form,
@@ -72,7 +76,7 @@ export async function uploadSellerProductImages(barCode, files = []) {
 }
 
 export async function deleteSellerProduct(barCode) {
-  const res = await fetch(`${BASE}/${encodeURIComponent(barCode)}`, {
+  const res = await fetch(`${API_URL}/products/${encodeURIComponent(barCode)}`, {
     method: 'DELETE',
     credentials: 'include',
   });

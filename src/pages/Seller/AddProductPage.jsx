@@ -9,7 +9,7 @@ const AddProductPage = () => {
 
   // Initialize state (supports simple edit mode if `location.state.product` is passed)
   const initial = location?.state?.product || {};
-  const [barCode, setBarCode] = useState(initial.BarCode || '');
+  const [barCode, setBarCode] = useState(initial.Bar_code || '');
   const [productName, setProductName] = useState(initial.Name || '');
   const [description, setDescription] = useState(initial.Description || '');
   const [originalPrice, setOriginalPrice] = useState('');
@@ -20,17 +20,17 @@ const AddProductPage = () => {
   // Variants: each variant will have a name (e.g. "Red-L"), price and stock.
   // This maps to the VARIATIONS table (Bar_code, NAME, PRICE) and we add stock as well.
   const [variants, setVariants] = useState(() => {
-    // Try to initialize from initial VARIATIONS if provided by edit flow
-    const v = initial?.VARIATIONS || initial?.variations || [];
+    // Initialize from API `variations` (DB field) if provided by edit flow
+    const v = initial?.variations || [];
     return Array.isArray(v) && v.length ? v.map(x => ({
-      name: x.NAME || x.name || '',
-      price: x.PRICE ?? x.price ?? '',
-      stock: x.Stock ?? x.stock ?? 0,
+      name: x.NAME || '',
+      price: x.PRICE ?? '',
+      stock: x.STOCK ?? 0,
     })) : [{ name: '', price: '', stock: 0 }];
   });
   // Categories for Belongs_to table selection
   const [categories, setCategories] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(initial?.Category || '');
+  const [selectedCategory, setSelectedCategory] = useState(initial?.category || '');
   const [manufacturingDate, setManufacturingDate] = useState('');
   const [expiredDate, setExpiredDate] = useState('');
   // Selected image files are kept locally but AddProductPage will NOT upload them.
@@ -45,20 +45,19 @@ const AddProductPage = () => {
 
   useEffect(() => {
     if (initial && Object.keys(initial).length > 0) {
-      setBarCode(initial.BarCode || '');
+      setBarCode(initial.Bar_code || '');
       setProductName(initial.Name || '');
       setDescription(initial.Description || '');
       setManufacturingDate(initial.Manufacturing_date ? initial.Manufacturing_date.split('T')[0] : '');
       setExpiredDate(initial.Expired_date ? initial.Expired_date.split('T')[0] : '');
       setVariants(prev => {
-        // if already set from initial above, keep that; otherwise try to use initial.VARIATIONS
-        if (Array.isArray(initial?.VARIATIONS) && initial.VARIATIONS.length) {
-          return initial.VARIATIONS.map(x => ({ name: x.NAME || '', price: x.PRICE ?? '', stock: x.Stock ?? 0 }));
+        if (Array.isArray(initial?.variations) && initial.variations.length) {
+          return initial.variations.map(x => ({ name: x.NAME || '', price: x.PRICE ?? '', stock: x.STOCK ?? 0 }));
         }
         return prev;
       });
-      setSelectedCategory(initial.Category || selectedCategory);
-      // If editing/viewing and product has images from API, pass them to the upload UI as initial images
+      setSelectedCategory(initial.category || selectedCategory);
+      // If editing/viewing and product has images from API, keep selectedFiles empty (images come from API)
       if (Array.isArray(initial.images) && initial.images.length) {
         setSelectedFiles([]);
       }
@@ -115,13 +114,13 @@ const AddProductPage = () => {
         Bar_code: barCode,
         Name: productName,
         Description: description,
-          Manufacturing_date: manufacturingDate || null,
-          Expired_date: expiredDate || null,
-          // send variants as an array to be stored in VARIATIONS table by backend
-          variations: variants.map(v => ({ NAME: v.name, PRICE: Number(v.price), Stock: Number(v.stock) })),
-          // send selected category for Belongs_to relation
-          category: selectedCategory || null,
+        Manufacturing_date: manufacturingDate || null,
+        Expired_date: expiredDate || null,
+        variations: variants.map(v => ({ NAME: v.name, PRICE: Number(v.price), STOCK: Number(v.stock) })),
       };
+      if (selectedCategory && typeof selectedCategory === 'string') {
+        payload.category = selectedCategory;
+      }
 
       const url = isEdit ? `/api/seller/products/${encodeURIComponent(barCode)}` : '/api/seller/products';
       const method = isEdit ? 'PUT' : 'POST';
@@ -143,7 +142,7 @@ const AddProductPage = () => {
         // layer should perform uploads when ready. We purposely do not call the
         // upload service from this page.
 
-        setTimeout(()=>navigate('/seller-dashboard'), 900);
+        setTimeout(()=>navigate('/seller/seller-dashboard'), 900);
       }
     } catch (err) {
       setErrorMessage(err.message || 'Unexpected error');

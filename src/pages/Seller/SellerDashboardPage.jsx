@@ -4,41 +4,15 @@ import { FiSearch, FiPlus, FiEdit, FiTrash2, FiEye } from 'react-icons/fi';
 import { LuChevronDown } from "react-icons/lu";
 import sellerProductService from '../../services/sellerProductService';
 
-// Notes:
-// - This component now fetches seller products from `/api/seller/products` using the
-//   `sellerProductService` wrapper. The backend expects the seller to be authenticated
-//   (cookie-based JWT). The product id used in routes is the BarCode from Product_SKU.
-// - We keep the original layout and most existing markup; only data is dynamic.
-// - The code includes loading, error handling, debounced search, and pagination.
-
-const StatusBadge = ({ status }) => {
-  let colorClasses = '';
-  switch (status) {
-    case 'Active':
-      colorClasses = 'bg-green-100 text-green-800';
-      break;
-    case 'Low Stock':
-      colorClasses = 'bg-yellow-100 text-yellow-800';
-      break;
-    case 'Out of Stock':
-      colorClasses = 'bg-red-100 text-red-800';
-      break;
-    default:
-      colorClasses = 'bg-gray-100 text-gray-800';
-  }
-  return (
-    <span className={`px-2 py-1 text-xs font-medium rounded-full ${colorClasses}`}>
-      <span className="w-2 h-2 inline-block rounded-full mr-1" style={{ backgroundColor: 'currentColor' }}></span>
-      {status}
-    </span>
-  );
-};
-
 const SellerDashboardPage = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedHasImages, setSelectedHasImages] = useState('');
+  const [selectedStock, setSelectedStock] = useState('all');
+  const [categories, setCategories] = useState([]);
   const [limit] = useState(20);
   const [offset, setOffset] = useState(0);
   const [page, setPage] = useState(1);
@@ -50,6 +24,18 @@ const SellerDashboardPage = () => {
     mountedRef.current = true;
     // Initial load
     fetchProducts();
+    // fetch available categories for the filter dropdown
+    (async () => {
+      try {
+        const res = await fetch('/api/categories', { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : (Array.isArray(data.categories) ? data.categories : []);
+        setCategories(list);
+      } catch (e) {
+        // ignore
+      }
+    })();
     return () => { mountedRef.current = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -84,6 +70,9 @@ const SellerDashboardPage = () => {
         limit,
         offset: opts.offset ?? offset,
         search: opts.search ?? search,
+        category: opts.category ?? selectedCategory,
+        hasImages: opts.hasImages ?? selectedHasImages,
+        stock: opts.stock ?? selectedStock,
         signal, // service should pass this to fetch if implemented
       });
 
@@ -95,12 +84,6 @@ const SellerDashboardPage = () => {
       // Product_SKU with columns: Bar_code, Name, Manufacturing_date, Expired_date, Description, sellerID
       // But API could return different naming conventions (BarCode, Bar_code, Barcode, etc.).
       const mapped = list.map(p => {
-        // Prefer explicit DB column keys first
-        const id = p.Bar_code || p.BarCode || p.Barcode || p.id || p.Id || '';
-        const name = p.Name || p.name || p["Name"] || '';
-        // Image sources might come from IMAGES table (IMAGE_URL) or an API alias
-        const image = p.IMAGE_URL || p.ImageUrl || p.image || p.imageUrl || 'https://via.placeholder.com/40';
-        const desc = p.Description || p.description || p.desc || '';
         // Date fields: normalize safely — handle strings (YYYY-MM-DD), Date objects, or null
         const parseDate = (v) => {
           if (!v) return '';
@@ -110,17 +93,16 @@ const SellerDashboardPage = () => {
             return d.toLocaleDateString();
           } catch (e) { return String(v).split('T')[0] || ''; }
         };
-        const manufacturingDate = parseDate(p.Manufacturing_date || p.Manufacture_Date || p.manufacturingDate || p.manufacturing_date);
-        const expiredDate = parseDate(p.Expired_date || p.expiredDate || p.expired_date || p.ExpiredDate);
-
         return {
-          id,
-          name,
-          image,
-          category: p.Category || p.category || 'Uncategorized',
-          description: desc,
-          manufacturingDate,
-          expiredDate,
+          Bar_code: p.Bar_code,
+          Name: p.Name,
+          Description: p.Description || '',
+          IMAGE_URL: p.IMAGE_URL || null,
+          images: p.images || [],
+          Manufacturing_date: parseDate(p.Manufacturing_date) || null,
+          Expired_date: parseDate(p.Expired_date) || null,
+          variations: p.variations || [], 
+          category: p.category || null,
         };
       });
 
@@ -154,15 +136,21 @@ const SellerDashboardPage = () => {
     });
   };
 
-  // Actions (edit/delete) — placeholders calling API and refreshing list
+  // Actions (edit/delete)
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this product? This action cannot be undone.')) return;
+
+    const prevProducts = products;
+    // Optimistic UI update
+    setProducts(prev => prev.filter(p => p.Bar_code !== id));
+    setLoading(true);
+
     try {
-      setLoading(true);
-      await sellerProductService.deleteSellerProduct(id);
-      // Optimistic update: remove from UI
-      setProducts(prev => prev.filter(p => p.id !== id));
+      await sellerProductService.deleteSellerProduct(id); // returns 204 or {success: true}
+      // Optionally show a toast / success message
     } catch (err) {
+      // rollback optimistic removal
+      setProducts(prevProducts);
       setError(err.message || 'Delete failed');
     } finally {
       setLoading(false);
@@ -179,7 +167,7 @@ const SellerDashboardPage = () => {
       const product = resp?.product || resp;
       if (!product) throw new Error('Product not found');
       // Navigate to AddProductPage with product in location state for edit
-      navigate('/add-product', { state: { product } });
+      navigate('/seller/add-product', { state: { product } });
     } catch (err) {
       setError(err.message || 'Failed to load product for editing');
     } finally {
@@ -195,7 +183,7 @@ const SellerDashboardPage = () => {
       const resp = await sellerProductService.getSellerProduct(id);
       const product = resp?.product || resp;
       if (!product) throw new Error('Product not found');
-      navigate('/add-product', { state: { product, viewOnly: true } });
+      navigate('/seller/add-product', { state: { product, viewOnly: true } });
     } catch (err) {
       setError(err.message || 'Failed to load product');
     } finally {
@@ -239,7 +227,7 @@ const SellerDashboardPage = () => {
             <h1 className="text-3xl font-bold text-gray-900">My Products</h1>
             <p className="text-gray-600 mt-1">Manage your product inventory and view sales performance.</p>
           </div>
-          <button onClick={()=>navigate('/add-product')} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center hover:bg-blue-700">
+          <button onClick={()=>navigate('/seller/add-product')} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center hover:bg-blue-700">
             <FiPlus className="mr-2" /> Add New Product
           </button>
         </div>
@@ -251,27 +239,44 @@ const SellerDashboardPage = () => {
               <input
                 type="text"
                 placeholder="Search by Product Name or Barcode"
-                className="w-full pl-10 pr-4 py-2 border rounded-lg"
+                className="w-full pl-10 pr-4 py-2 border rounded-lg bg-white shadow-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setOffset(0); fetchProducts({ search: e.target.value, offset: 0 }); }}
               />
             </div>
             <div className="flex items-center space-x-4">
               <div className="relative">
-                <select className="pl-4 pr-10 py-2 border rounded-lg appearance-none">
-                  <option>Category</option>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => { setSelectedCategory(e.target.value); setOffset(0); fetchProducts({ category: e.target.value, offset: 0 }); }}
+                  className="pl-4 pr-10 py-2 border rounded-lg bg-white shadow-sm text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All Categories</option>
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
                 <LuChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
               </div>
               <div className="relative">
-                <select className="pl-4 pr-10 py-2 border rounded-lg appearance-none">
-                  <option>Status</option>
+                <select
+                  value={selectedHasImages}
+                  onChange={(e) => { setSelectedHasImages(e.target.value); setOffset(0); fetchProducts({ hasImages: e.target.value, offset: 0 }); }}
+                  className="pl-4 pr-10 py-2 border rounded-lg bg-white shadow-sm text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All Images</option>
+                  <option value="with">With Images</option>
+                  <option value="without">Without Images</option>
                 </select>
                 <LuChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
               </div>
               <div className="relative">
-                <select className="pl-4 pr-10 py-2 border rounded-lg appearance-none">
-                  <option>Stock</option>
+                <select
+                  value={selectedStock}
+                  onChange={(e) => { setSelectedStock(e.target.value); setOffset(0); fetchProducts({ stock: e.target.value, offset: 0 }); }}
+                  className="pl-4 pr-10 py-2 border rounded-lg bg-white shadow-sm text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Stock</option>
+                  <option value="in">In Stock</option>
+                  <option value="out">Out of Stock</option>
                 </select>
                 <LuChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
               </div>
@@ -304,26 +309,26 @@ const SellerDashboardPage = () => {
                 </tr>
               )}
               {!loading && products.map((product) => (
-                <tr key={product.id} className="border-b">
+                <tr key={product.Bar_code} className="border-b">
                   <td className="p-4"><input type="checkbox" /></td>
                   <td className="p-4">
                     <div className="flex items-center">
-                      <img src={product.image} alt={product.name} className="w-10 h-10 rounded-md mr-4" />
+                      <img src={product.IMAGE_URL || (product.images && product.images.length ? product.images[0] : '')} alt={product.Name} className="w-10 h-10 rounded-md mr-4" />
                       <div>
-                        <p className="font-semibold text-gray-900">{product.name || 'Unnamed product'}</p>
-                        <p className="text-sm text-gray-500">{product.id}</p>
+                        <p className="font-semibold text-gray-900">{product.Name || 'Unnamed product'}</p>
+                        <p className="text-sm text-gray-500">{product.Bar_code}</p>
                       </div>
                     </div>
                   </td>
                   <td className="p-4 text-gray-600">{product.category}</td>
-                  <td className="p-4 text-gray-600 truncate max-w-xl">{product.description}</td>
-                  <td className="p-4 text-gray-600">{product.manufacturingDate}</td>
-                  <td className="p-4 text-gray-600">{product.expiredDate}</td>
+                  <td className="p-4 text-gray-600 truncate max-w-xl">{product.Description}</td>
+                  <td className="p-4 text-gray-600">{product.Manufacturing_date}</td>
+                  <td className="p-4 text-gray-600">{product.Expired_date}</td>
                   <td className="p-4">
                     <div className="flex space-x-2">
-                      <button onClick={() => handleEdit(product.id)} className="text-gray-500 hover:text-blue-600" title="Edit"><FiEdit size={18} /></button>
-                      <button onClick={() => handleView(product.id)} className="text-gray-500 hover:text-blue-600" title="View"><FiEye size={18} /></button>
-                      <button onClick={() => handleDelete(product.id)} className="text-gray-500 hover:text-red-600" title="Delete"><FiTrash2 size={18} /></button>
+                      <button onClick={() => handleEdit(product.Bar_code)} className="text-gray-500 hover:text-blue-600" title="Edit"><FiEdit size={18} /></button>
+                      <button onClick={() => handleView(product.Bar_code)} className="text-gray-500 hover:text-blue-600" title="View"><FiEye size={18} /></button>
+                      <button onClick={() => handleDelete(product.Bar_code)} className="text-gray-500 hover:text-red-600" title="Delete"><FiTrash2 size={18} /></button>
                     </div>
                   </td>
                 </tr>
