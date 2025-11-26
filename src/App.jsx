@@ -5,6 +5,7 @@ import ShoppingCart from './pages/Cart/CartPage';
 import CheckoutPage from './pages/Cart/CheckoutPage';
 import PaymentPage from './pages/Payment/PaymentPage';
 import ShipperDetails from './pages/Shipper/ShipperDetails';
+import ShipperOrders from './pages/Shipper/ShipperOrders';
 import SellerProductReport from './pages/Seller/SellerProductReport';
 import LandingPage from './pages/Home/LandingPage';
 import Promotion from './pages/promotion/Promotion';
@@ -15,6 +16,7 @@ import ProductReviews from './pages/Review/ProductReviews';
 import ProductListingPage from './pages/Products/ProductListingPage';
 import SellerDashboardPage from './pages/Seller/SellerDashboardPage';
 import AddProductPage from './pages/Seller/AddProductPage';
+import ProfilePage from './pages/Login/ProfilePage';
 
 function App() {
   return (
@@ -53,6 +55,11 @@ function App() {
           <ShipperDetails />
         </ProtectedRoute>
       } />
+      <Route path="/shipper/orders" element={
+        <ProtectedRoute>
+          <ShipperOrders />
+        </ProtectedRoute>
+      } />
       <Route path="/seller-report" element={
         <ProtectedRoute>
           <SellerProductReport />
@@ -77,6 +84,11 @@ function App() {
       <Route path="/user" element={
         <ProtectedRoute>
           <UserDetails />
+        </ProtectedRoute>
+      } />
+      <Route path="/profile" element={
+        <ProtectedRoute>
+          <ProfilePage />
         </ProtectedRoute>
       } />
       {/* <Route path="/products" element={
