@@ -13,16 +13,18 @@ const ProductListingPage = () => {
     const [selectedImageIdx, setSelectedImageIdx] = useState(0);
     const [qty, setQty] = useState(1);
     const [selectedVariant, setSelectedVariant] = useState(null); 
+    
+    // NEW STATE FOR CART FEEDBACK
+    const [isAddingToCart, setIsAddingToCart] = useState(false);
+    const [cartError, setCartError] = useState(null);
 
     const formatPrice = (val) => {
         const n = Math.round(Number(val) || 0);
         return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' đ';
     };
 
-    // --- NEW LOGIC: Stock Calculation ---
-    // Calculate max available stock based on selected variant
+    // --- Stock Calculation Logic ---
     const availableStock = useMemo(() => {
-        // If a variant is selected, use its stock. Otherwise, use a default value (e.g., product's stock or 0)
         return selectedVariant?.stock ?? 0;
     }, [selectedVariant]);
 
@@ -33,12 +35,65 @@ const ProductListingPage = () => {
         if (newQty < 1) {
             setQty(1);
         } else if (newQty > stockLimit) {
-            setQty(stockLimit); // Restrict to maximum available stock
+            setQty(stockLimit);
         } else {
             setQty(newQty);
         }
     };
-    // ------------------------------------
+
+    // --- NEW: Handle Add to Cart API Call ---
+    const handleAddToCart = async () => {
+        setCartError(null);
+        
+        if (!selectedVariant) {
+            setCartError("Please select a product variant before adding to cart.");
+            return;
+        }
+
+        // Check stock one last time
+        if (qty < 1 || qty > availableStock) {
+            setCartError(`Invalid quantity. Must be between 1 and ${availableStock}.`);
+            return;
+        }
+
+        setIsAddingToCart(true);
+
+        const cartData = {
+            barcode: barcode,
+            variationName: selectedVariant.name,
+            quantity: qty
+        };
+
+        try {
+            // NOTE: Update the URL path if your router is different from '/api/cart'
+            const res = await fetch('/api/cart', { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // ** CRITICAL: Add Authorization header if your route uses verifyToken **
+                    // 'Authorization': `Bearer ${localStorage.getItem('userToken')}`, 
+                },
+                body: JSON.stringify(cartData),
+            });
+
+            const result = await res.json();
+
+            if (!res.ok || !result.success) {
+                // Throw an error with the detailed message from the backend
+                throw new Error(result.message || `Failed to add item. Status: ${res.status}`);
+            }
+
+            alert(`✅ ${result.message || 'Item added to cart successfully!'}`);
+            
+        } catch (err) {
+            console.error("Cart API Error:", err);
+            setCartError(err.message);
+        } finally {
+            setIsAddingToCart(false);
+        }
+    };
+    // ---------------------------------------------
+
 
     useEffect(() => {
         if (!barcode) return;
@@ -75,17 +130,14 @@ const ProductListingPage = () => {
                     return;
                 }
 
-                // Update state
                 setProduct(finalProduct);
                 setImages(rawImages || []);
                 setVariations(rawVariations || []);
                 setSelectedImageIdx(0);
                 
-                // Initialize selected variant to the first one available
                 const initialVariant = (rawVariations && rawVariations.length > 0) ? rawVariations[0] : null;
                 setSelectedVariant(initialVariant);
                 
-                // Reset quantity to 1 when a new product loads
                 setQty(1); 
 
             } catch (err) {
@@ -102,23 +154,19 @@ const ProductListingPage = () => {
         return () => controller.abort();
     }, [barcode]);
 
-    // --- Price Calculation Logic (Updated for Range Requirement) ---
+    // --- Price Calculation Logic ---
     let finalDisplayPrice;
     const priceRange = product?.priceRange;
     const isMultipleVariants = variations.length > 1;
 
     if (selectedVariant) {
-        // Price is determined by the selected variant's price
         finalDisplayPrice = formatPrice(selectedVariant.price);
     } else if (isMultipleVariants && priceRange && priceRange.min !== priceRange.max) {
-        // Requirement: Show range if multiple variants and min != max
         finalDisplayPrice = `${formatPrice(priceRange.min)} - ${formatPrice(priceRange.max)}`;
     } else if (isMultipleVariants || variations.length === 1) {
-        // Fallback: If only one variant, or min == max, just display the single price
         const price = variations[0]?.price || priceRange?.min || product?.price;
         finalDisplayPrice = formatPrice(price);
     } else {
-        // No variations / fallback to product price
         finalDisplayPrice = formatPrice(product?.price);
     }
     // ---------------------------------
@@ -189,7 +237,6 @@ const ProductListingPage = () => {
 
                         <div className="mb-4">
                             <div className="flex items-baseline gap-4">
-                                {/* Display the calculated final price or range */}
                                 <div className="text-3xl font-extrabold text-red-600">{finalDisplayPrice}</div>
                                 {displayListPrice ? (
                                     <div className="text-sm text-gray-500 line-through">{formatPrice(displayListPrice)}</div>
@@ -198,6 +245,14 @@ const ProductListingPage = () => {
                         </div>
 
                         <div className="text-sm text-gray-700 mb-6">{product.description || 'No description available.'}</div>
+                        
+                        {/* Display Cart API Error Feedback */}
+                        {cartError && (
+                            <div className="text-sm text-red-600 mb-3 p-2 border border-red-200 bg-red-50 rounded">
+                                Error adding to cart: {cartError}
+                            </div>
+                        )}
+
 
                         {variations.length > 0 && (
                             <div className="mb-4">
@@ -208,7 +263,7 @@ const ProductListingPage = () => {
                                             key={v.name || index}
                                             onClick={() => {
                                                 setSelectedVariant(v);
-                                                handleQtyChange(qty); // Re-validate quantity against new stock
+                                                handleQtyChange(qty); 
                                             }}
                                             className={`px-3 py-2 border rounded-md text-sm transition-colors 
                                                 ${(selectedVariant?.name === v.name) 
@@ -217,7 +272,6 @@ const ProductListingPage = () => {
                                                 }`
                                             }
                                         >
-                                            {/* Requirement: Only show the name, no price */}
                                             {v.name}
                                         </button>
                                     ))}
@@ -228,40 +282,36 @@ const ProductListingPage = () => {
                         <div className="flex items-center gap-4 mb-6">
                             <div className="flex items-center border rounded-md">
                                 <button
-                                    // Use handleQtyChange to enforce minimum (1) and maximum (stock)
                                     onClick={() => handleQtyChange(qty - 1)}
                                     className="px-3 py-2"
-                                    disabled={qty <= 1} // Disable when at minimum
+                                    disabled={qty <= 1} 
                                 >
                                     -
                                 </button>
                                 <div className="px-4">
-                                    {/* Display current quantity */}
                                     {qty}
                                 </div>
                                 <button
-                                    // Use handleQtyChange to enforce minimum (1) and maximum (stock)
                                     onClick={() => handleQtyChange(qty + 1)}
                                     className="px-3 py-2"
-                                    disabled={qty >= availableStock} // Disable when at maximum stock
+                                    disabled={qty >= availableStock} 
                                 >
                                     +
                                 </button>
                             </div>
 
-                            {/* Display available stock based on selected variant */}
                             <div className="text-sm text-gray-500">
                                 {availableStock} pieces available
                             </div>
                         </div>
 
                         <div className="flex gap-4">
-                            {/* Check if the user is trying to buy more than available */}
                             <button 
+                                onClick={handleAddToCart} // ATTACH HANDLER HERE
                                 className="flex-1 bg-white border border-red-600 text-red-600 py-3 rounded-md hover:bg-red-50"
-                                disabled={qty > availableStock || availableStock === 0}
+                                disabled={isAddingToCart || qty > availableStock || availableStock === 0} // DISABLE WHILE ADDING
                             >
-                                Add to cart
+                                {isAddingToCart ? 'Adding...' : 'Add to cart'}
                             </button>
                             <button 
                                 className="flex-1 bg-red-600 text-white py-3 rounded-md hover:bg-red-700"
