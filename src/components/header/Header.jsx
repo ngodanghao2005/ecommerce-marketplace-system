@@ -246,32 +246,23 @@ export default function Header({showNav=false}) {
                 {/* Divider */}
                 <div className="border-t border-gray-200 my-4"></div>
 
-                {/* Mobile User Controls (Simplified) */}
+                {/* Mobile User Controls - Role-based */}
                 <div className="flex flex-col space-y-2">
-                     <Link
-                        to="/profile"
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 w-full text-left"
-                    >
-                        <FaUser className="h-5 w-5" /> Profile
-                    </Link>
-                     <Link
-                        to="/settings"
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 w-full text-left"
-                    >
-                        <FaCog className="h-5 w-5" /> Settings
-                    </Link>
-                    <Link
-                        to="/cart"
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 w-full text-left"
-                    >
-                        <FaShoppingCart className="h-5 w-5" /> My Cart
-                    </Link>
+                    {(ROLE_MENU_CONFIG[menuRole] || []).map(item => {
+                        const Icon = item.icon || FaUser;
+                        return (
+                            <Link
+                                key={item.key}
+                                to={item.to}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 w-full text-left"
+                            >
+                                <Icon className="h-5 w-5" /> {item.label}
+                            </Link>
+                        );
+                    })}
                     <button
                         onClick={() => {
-                            // Add logout logic
                             handleLogout();
                             setIsMobileMenuOpen(false);
                         }}
