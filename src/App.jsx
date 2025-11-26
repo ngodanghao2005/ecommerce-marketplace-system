@@ -1,4 +1,4 @@
-import { Route, Routes, Navigate } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
 import ShoppingCart from './pages/Cart/CartPage';
@@ -15,6 +15,8 @@ import ProductReviews from './pages/Review/ProductReviews';
 import ProductListingPage from './pages/Products/ProductListingPage';
 import SellerDashboardPage from './pages/Seller/SellerDashboardPage';
 import AddProductPage from './pages/Seller/AddProductPage';
+import WriteReview from './pages/Review/WriteReview';
+import LoginPage from './pages/Login/LoginPage';
 
 function App() {
   return (
@@ -80,18 +82,25 @@ function App() {
         </ProtectedRoute>
       } />
       {/* <Route path="/products" element={
+
+      {/* Reviews (protected) */}
+      <Route path="/product/:productId/reviews" element={
         <ProtectedRoute>
-          <ProductListingPage />
+          <ProductReviews />
         </ProtectedRoute>
-      } /> */}
+      } />
+      <Route path="/write-review" element={
+        <ProtectedRoute>
+          <WriteReview />
+        </ProtectedRoute>
+      } />
       <Route path="/review" element={
         <ProtectedRoute>
-        <ProductReviews />
+          <ProductReviews />
         </ProtectedRoute>
       } />
     </Routes>
   );
 }
 
-export default App
-
+export default App;
