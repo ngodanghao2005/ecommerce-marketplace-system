@@ -8,31 +8,64 @@ import paymentService from '../../services/paymentService';
 export default function PaymentPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [orderData] = useState(location.state?.orderData || null);
+  const { orderIds, total } = location.state || {};
 
-  console.log('PaymentPage: Order data (navigation state only):', orderData);
+  console.log('PaymentPage: orderIds & total from state:', orderIds, total);
   
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [showSuccess, setShowSuccess] = useState(false);
   const [countdown, setCountdown] = useState(3);
-  const [orderError, setOrderError] = useState('');
-  const [orderSuccessMsg, setOrderSuccessMsg] = useState('');
+  const [transactionId, setTransactionId] = useState(null);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [processing, setProcessing] = useState(false);
 
-  // If state is lost (no orderData), send user back to cart immediately
+  // If state is lost (no orderIds), send user back to cart immediately
   useEffect(() => {
-    if (!orderData) {
+    if (!orderIds || !orderIds.length) {
       navigate('/cart');
+      return;
     }
-  }, [orderData, navigate]);
+    // Create transaction on mount
+    const createTransaction = async () => {
+      try {
+        const res = await fetch('/api/transaction', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderIds, total })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.message || 'Transaction creation failed');
+        setTransactionId(data?.transactionId || data?.id);
+        console.log('Transaction created:', data);
+      } catch (err) {
+        console.error('Transaction error:', err);
+        setErrorMsg(err.message || 'Failed to create transaction');
+      }
+    };
+    createTransaction();
+  }, [orderIds, total, navigate]);
 
   const handlePayment = async () => {
-    // Simulate card payment success then create order
+    if (!transactionId) {
+      setErrorMsg('No transaction ID. Cannot proceed with payment.');
+      return;
+    }
+    setProcessing(true);
     setShowSuccess(true);
     try {
-      const { address, quantity, price, barcode, variationname } = orderData || {};
-      const res = await paymentService.createOrder({ address, quantity, price, barcode, variationname, status: 'Pending' });
-      setOrderSuccessMsg(res?.message || 'Order created successfully');
-      setOrderError('');
+      const res = await fetch('/api/pay', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactionId })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || 'Payment failed');
+      setSuccessMsg(data?.message || 'Payment successful');
+      setErrorMsg('');
+      console.log('Payment successful:', data);
       // Success: redirect to buyer orders after countdown
       const timer = setInterval(() => {
         setCountdown(prev => {
@@ -45,26 +78,16 @@ export default function PaymentPage() {
         });
       }, 1000);
     } catch (e) {
-      console.error('Create order error:', e);
-      setOrderError(e.message || 'Failed to create order');
-      setOrderSuccessMsg('');
-      // Error: redirect to cart after countdown
-      const timer = setInterval(() => {
-        setCountdown(prev => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            navigate('/cart');
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      console.error('Payment error:', e);
+      setErrorMsg(e.message || 'Payment failed');
+      setSuccessMsg('');
+      setShowSuccess(false);
+    } finally {
+      setProcessing(false);
     }
   };
 
-  if (!orderData) return null;
-
-  const { total, items, user } = orderData;
+  if (!orderIds || !orderIds.length) return null;
   const formatAmount = (val) => {
     const num = Number(val);
     return Number.isFinite(num) ? num.toFixed(3) : '0.000';
@@ -77,15 +100,20 @@ export default function PaymentPage() {
       <main className="max-w-4xl mx-auto p-6 text-black">
         <h1 className="text-2xl font-bold mb-6">Payment</h1>
 
-        {/* Order feedback banners */}
-        {orderError && (
+        {/* Transaction & Payment feedback banners */}
+        {errorMsg && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3">
-            {orderError}
+            {errorMsg}
           </div>
         )}
-        {orderSuccessMsg && (
+        {successMsg && (
           <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg p-3">
-            {orderSuccessMsg}
+            {successMsg}
+          </div>
+        )}
+        {transactionId && (
+          <div className="mb-4 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg p-3 text-sm">
+            Transaction ID: {transactionId}
           </div>
         )}
 
@@ -154,7 +182,7 @@ export default function PaymentPage() {
               <h2 className="font-semibold mb-4">Order Summary</h2>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Items ({items?.length || 0})</span>
+                  <span className="text-gray-600">Orders ({orderIds?.length || 0})</span>
                   <span className="font-medium">{formatAmount(Number(total) - 16.5)}₫</span>
                 </div>
                 <div className="flex justify-between">
@@ -200,9 +228,12 @@ export default function PaymentPage() {
 
               <button
                 onClick={handlePayment}
-                className="w-full mt-6 bg-primary hover:bg-secondary text-white py-3 rounded-md font-semibold"
+                disabled={!transactionId || processing}
+                className={`w-full mt-6 bg-primary hover:bg-secondary text-white py-3 rounded-md font-semibold ${
+                  !transactionId || processing ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               >
-                Pay {formatAmount(total)}₫
+                {processing ? 'Processing...' : `Pay ${formatAmount(total)}₫`}
               </button>
             </section>
           </div>
@@ -218,10 +249,10 @@ export default function PaymentPage() {
                 <FiCheck className="w-8 h-8 text-green-500" />
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h2>
-              {orderError ? (
-                <p className="text-red-600 mb-2">Order creation failed: {orderError}</p>
+              {errorMsg ? (
+                <p className="text-red-600 mb-2">Error: {errorMsg}</p>
               ) : (
-                <p className="text-gray-600 mb-2">Your order has been placed successfully.</p>
+                <p className="text-gray-600 mb-2">Your payment has been processed successfully.</p>
               )}
               <p className="text-sm text-gray-500 mb-4">Order Total: <span className="font-semibold text-red-600">{formatAmount(total)}₫</span></p>
               <p className="text-sm text-gray-400">Redirecting in {countdown} seconds...</p>
