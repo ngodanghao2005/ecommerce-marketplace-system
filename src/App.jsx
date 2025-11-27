@@ -18,6 +18,8 @@ import ProfilePage from './pages/Login/ProfilePage';
 import WriteReview from './pages/Review/WriteReview';
 import LoginPage from './pages/Login/LoginPage';
 import ProductListingPage from './pages/Products/ProductListingPage';
+import BuyerOrdersPage from './pages/Buyer/BuyerOrdersPage';
+
 import OrderDashboardPage from './pages/Seller/OrderDashboardPage';
 function App() {
   return (
@@ -97,6 +99,13 @@ function App() {
         </ProtectedRoute>
       } />
 
+      
+    {/* <Route path="/seller/orders" element={
+        <ProtectedRoute>
+          <OrderDashboardPage />
+        </ProtectedRoute>
+      } /> */}
+
       <Route path="/promotion" element={
         <ProtectedRoute>
           <Promotion />
@@ -111,6 +120,12 @@ function App() {
       <Route path="/profile" element={
         <ProtectedRoute>
           <ProfilePage />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/buyer/orders" element={
+        <ProtectedRoute>
+          <BuyerOrdersPage />
         </ProtectedRoute>
       } />
       

@@ -15,7 +15,7 @@ const DEFAULT_AVATAR = 'https://www.gravatar.com/avatar/?d=mp&s=80';
 const ROLE_MENU_CONFIG = {
     buyer: [
         { key: 'profile', label: 'Profile', to: '/profile', icon: FaUser },
-        { key: 'orders', label: 'My Orders', to: '/orders', icon: FaCog },
+        { key: 'orders', label: 'My Orders', to: '/buyer/orders', icon: FaCog },
         { key: 'cart', label: 'My Cart', to: '/cart', icon: FaShoppingCart },
         // Thêm mục Review cho Buyer
         { key: 'write-review', label: 'Write Review', to: '/write-review', icon: FaStar },

@@ -93,15 +93,15 @@ export default function CheckoutPage() {
       }
       const failures = results.filter(r => !r.ok);
       if (!failures.length) {
-        setSuccessMsg(`Created ${results.length} order${results.length>1?'s':''}. Redirecting to payment...`);
+        setSuccessMsg(`Created ${results.length} order${results.length>1?'s':''}. Redirecting to orders...`);
         const orderIds = results.map(r => r.orderId).filter(Boolean);
-        setTimeout(() => navigate('/payment', { state: { orderIds, total } }), 1200);
+        setTimeout(() => navigate('/buyer/orders', { state: { orderIds, total } }), 1200);
       } else if (failures.length === results.length) {
         setErrorMsg('All orders failed. Check item data or permissions.');
       } else {
         const orderIds = results.filter(r => r.ok).map(r => r.orderId).filter(Boolean);
         setErrorMsg(`Partial success: ${results.length - failures.length}/${results.length}. Failed IDs: ${failures.map(f=>f.id).join(', ')}. Redirecting with successful orders...`);
-        setTimeout(() => navigate('/payment', { state: { orderIds, total } }), 1500);
+        setTimeout(() => navigate('/buyer/orders', { state: { orderIds, total } }), 1500);
       }
     } catch (e) {
       console.error('Create order failed:', e);
