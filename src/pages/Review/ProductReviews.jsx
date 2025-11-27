@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Star, ThumbsUp, MoreHorizontal, ChevronDown, MessageSquare } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 
-// CHỈ IMPORT REVIEW SERVICE
+// Import Review Service
 import * as reviewService from '../../services/reviewService';
 
 // Import Header/Footer
@@ -10,7 +10,7 @@ import Header from '../../components/header/Header';
 import Footer from '../../components/footer/Footer';
 
 const ProductReviews = () => {
-  // List of reaction types (Translated to English)
+  // Reaction Types Configuration
   const REACTION_TYPES = [
     { id: 'like', icon: '👍', label: 'Like', color: 'text-blue-600' },
     { id: 'love', icon: '❤️', label: 'Love', color: 'text-red-500' },
@@ -23,22 +23,26 @@ const ProductReviews = () => {
   const { productId: pid } = useParams();
   const navigate = useNavigate();
 
+  // State Management
   const [products, setProducts] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState('');
+  
+  // [NEW] State for Reply System
+  const [replyInput, setReplyInput] = useState({}); // Stores text for each review: { reviewId: "text..." }
+  const [activeReplyId, setActiveReplyId] = useState(null); // ID of the review currently being replied to
 
-  // Load initial data
+  // Load Data Effect
   useEffect(() => {
     const loadData = async () => {
-      // 1. Load product list for Dropdown (Use ReviewService)
+      // 1. Fetch Product List for Dropdown
       if (products.length === 0) {
         try {
           const allProducts = await reviewService.getAllProducts();
-          
           if (allProducts && allProducts.length > 0) {
             setProducts(allProducts);
-            // If no pid in URL, auto-navigate to the first product
+            // Auto-navigate to first product if no ID in URL
             if (!pid) {
                 navigate(`/product/${allProducts[0].product_id}/reviews`);
                 return; 
@@ -49,19 +53,17 @@ const ProductReviews = () => {
         }
       }
 
-      // 2. Load Reviews if pid exists
+      // 2. Fetch Reviews for current product
       if (pid) {
         setLoading(true);
         setFetchError('');
         try {
           const list = await reviewService.getReviews(pid);
           
-          // Map API data to UI format
+          // Normalize Data for UI
           const formattedList = list.map(item => ({
               ...item,
-              // Ensure avatar fallback
               avatar: item.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(item.username || 'User')}`,
-              // Ensure replies is an array
               replies: Array.isArray(item.replies) ? item.replies.map(r => ({
                   ...r,
                   avatar: r.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(r.username || 'User')}`
@@ -84,8 +86,7 @@ const ProductReviews = () => {
     loadData();
   }, [pid, navigate]); 
 
-
-  // Helper function: Update review state (Optimistic Update)
+  // Helper: Update Review State (Optimistic UI)
   const updateReviewState = (reviewId, reactionType, isReply = false, parentId = null) => {
       setReviews(prevReviews => {
           return prevReviews.map(review => {
@@ -120,22 +121,46 @@ const ProductReviews = () => {
       });
   };
 
-  // Handle Reaction Selection
+  // Handler: Reaction Click
   const handleReact = async (targetId, reactionType, isReply = false, parentId = null) => {
-    // 1. Optimistic UI Update
-    updateReviewState(targetId, reactionType, isReply, parentId);
+    updateReviewState(targetId, reactionType, isReply, parentId); // Optimistic update
 
-    // 2. Call API
     if (pid) {
       try {
         await reviewService.upsertReaction(targetId, reactionType);
       } catch (err) {
         console.error('upsertReaction error', err);
-        alert("An error occurred, please try again.");
-        // Revert if error
+        // Revert on error
         updateReviewState(targetId, reactionType, isReply, parentId);
       }
     }
+  };
+
+  // [NEW] Handler: Submit Reply
+  const handleSubmitReply = async (reviewId) => {
+      const content = replyInput[reviewId];
+      if (!content || !content.trim()) return;
+
+      try {
+          const newReply = await reviewService.sendReply(reviewId, content);
+          
+          // Update UI with new reply
+          setReviews(prev => prev.map(rev => {
+              if (rev.id === reviewId) {
+                  return {
+                      ...rev,
+                      replies: [...(rev.replies || []), newReply] 
+                  };
+              }
+              return rev;
+          }));
+
+          // Clear input and close box
+          setReplyInput(prev => ({ ...prev, [reviewId]: '' }));
+          setActiveReplyId(null);
+      } catch (err) {
+          alert('Failed to post reply: ' + err.message);
+      }
   };
 
   const renderStars = (rating) => {
@@ -153,13 +178,13 @@ const ProductReviews = () => {
     );
   };
 
-  // Reaction Button Component
+  // Component: Reaction Button with Hover Dock
   const ReactionButton = ({ item, onReact, isReply = false, parentId = null }) => {
     const currentReaction = REACTION_TYPES.find(r => r.id === item.myReaction);
 
     return (
       <div className="relative group inline-block">
-        {/* Reaction Dock */}
+        {/* Hover Dock (Fixed Dead Zone with pb-2) */}
         <div className="absolute bottom-full left-0 hidden group-hover:block pb-2 z-20 min-w-max">
            <div className="bg-white shadow-xl rounded-full px-2 py-1 border border-gray-100 flex gap-2 animate-fade-in-up">
               {REACTION_TYPES.map((type) => (
@@ -175,7 +200,7 @@ const ProductReviews = () => {
            </div>
         </div>
 
-        {/* Main Button */}
+        {/* Button */}
         <button 
           onClick={() => onReact(item.id, 'like', isReply, parentId)} 
           className={`flex items-center gap-1.5 text-sm font-medium transition-colors py-1 ${currentReaction ? currentReaction.color : 'text-gray-500 hover:text-blue-600'}`}
@@ -238,8 +263,8 @@ const ProductReviews = () => {
           <div className="px-6 pb-6 pt-2 border-b border-gray-100">
              <div className="flex flex-wrap gap-2">
                  <button className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm font-medium">All ({reviews.length})</button>
-                 {/* <button className="px-4 py-1.5 border border-gray-200 bg-white text-gray-600 rounded text-sm hover:border-blue-500">5 Stars</button>
-                 <button className="px-4 py-1.5 border border-gray-200 bg-white text-gray-600 rounded text-sm hover:border-blue-500">With Comments</button> */}
+                 <button className="px-4 py-1.5 border border-gray-200 bg-white text-gray-600 rounded text-sm hover:border-blue-500">5 Stars</button>
+                 <button className="px-4 py-1.5 border border-gray-200 bg-white text-gray-600 rounded text-sm hover:border-blue-500">With Comments</button>
              </div>
           </div>
 
@@ -267,7 +292,6 @@ const ProductReviews = () => {
 
               {/* Content */}
               <div className="grow">
-                {/* User Info */}
                 <div className="flex justify-between items-start">
                   <div>
                     <div className="text-sm font-semibold text-gray-800">{review.username}</div>
@@ -279,24 +303,57 @@ const ProductReviews = () => {
                   {renderStars(review.rating)}
                 </div>
 
-                {/* Main Review Text */}
                 <div className="mt-3">
                   <div className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{review.content}</div>
                 </div>
 
-                {/* Actions */}
+                {/* Actions Row */}
                 <div className="mt-3 flex items-center gap-6">
                   <ReactionButton item={review} onReact={handleReact} />
-                  <button className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-blue-600">
+                  
+                  {/* [NEW] Reply Button with Toggle Logic */}
+                  <button 
+                    onClick={() => setActiveReplyId(activeReplyId === review.id ? null : review.id)}
+                    className={`flex items-center gap-1.5 text-sm font-medium hover:text-blue-600 ${activeReplyId === review.id ? 'text-blue-600' : 'text-gray-500'}`}
+                  >
                     <MessageSquare size={14} />
                     <span>Reply</span>
                   </button>
                 </div>
 
-                {/* REPLIES SECTION */}
+                {/* [NEW] Reply Input Box */}
+                {activeReplyId === review.id && (
+                    <div className="mt-4 flex gap-3 animate-fade-in-down pl-4 border-l-2 border-gray-100">
+                        <div className="grow">
+                            <textarea
+                                className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 resize-none"
+                                placeholder="Write your reply..."
+                                rows="2"
+                                value={replyInput[review.id] || ''}
+                                onChange={(e) => setReplyInput({ ...replyInput, [review.id]: e.target.value })}
+                                autoFocus
+                            />
+                            <div className="flex justify-end mt-2 gap-2">
+                                <button 
+                                    onClick={() => setActiveReplyId(null)}
+                                    className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={() => handleSubmitReply(review.id)}
+                                    className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium"
+                                >
+                                    Post Reply
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Replies List */}
                 {review.replies && review.replies.length > 0 && (
                   <div className="mt-4 bg-gray-50 rounded-md p-4 space-y-4 relative">
-                    {/* Arrow indicator */}
                     <div className="absolute -top-2 left-4 w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-b-8 border-b-gray-50"></div>
                              
                     {review.replies.map(reply => (
@@ -314,7 +371,6 @@ const ProductReviews = () => {
                           </div>
                           <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{reply.content}</p>
                           
-                          {/* Reply Actions */}
                           <div className="mt-2 flex items-center gap-4">
                             <ReactionButton 
                                 item={reply} 
@@ -322,6 +378,7 @@ const ProductReviews = () => {
                                 isReply={true} 
                                 parentId={review.id} 
                             />
+                            {/* Nested reply not implemented in this version, just a button for UI consistency */}
                             <button className="text-xs font-medium text-gray-500 hover:text-blue-600">Reply</button>
                           </div>
                         </div>

@@ -135,11 +135,32 @@ export async function getAllProducts() {
     return [];
 }
 
+export async function sendReply(reviewId, content) {
+    const res = await fetch(`/api/reviews/${encodeURIComponent(reviewId)}/reply`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+    });
+    const out = await handleResponse(res);
+    if (!out.ok) throw new Error(out.body?.message || 'Failed to reply');
+    
+    // Chuẩn hóa dữ liệu trả về để khớp UI
+    const r = out.body.data;
+    return {
+        id: Date.now(), // Temp ID vì SQL trả về ko có ID reply
+        username: r.username || 'Me',
+        content: r.content,
+        date: r.date
+    };
+}
+
 export default {
   getReviews,
   createReview,
   markHelpful,
   upsertReaction,
   getPurchasesForReview,
-  getAllProducts, // Export thêm hàm này
+  getAllProducts,
+  sendReply,
 };
