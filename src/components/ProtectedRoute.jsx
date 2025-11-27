@@ -244,9 +244,12 @@ const ProtectedRoute = ({ children }) => {
             '/cart',
             '/home',
             '/profile',
-            '/product',
+            '/checkout',
+            '/payment',
+            '/buyer/orders',
             '/write-review',
             '/review',
+            '/product',
         ];
 
         const isAllowedRoute = allowedBuyerRoutes.some(route => 

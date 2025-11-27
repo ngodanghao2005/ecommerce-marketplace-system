@@ -127,7 +127,7 @@ function App() {
         </ProtectedRoute>
       } />
 
-      <Route path="/review" element={
+      <Route path="product/review" element={
         <ProtectedRoute>
           <ProductReviews />
         </ProtectedRoute>
